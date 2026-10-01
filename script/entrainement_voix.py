@@ -13,9 +13,9 @@ SAMPLE_RATE = 22050
 N_MFCC = 40        # Nombre de coefficients MFCC
 
 BATCH_SIZE = 16
-EPOCHS = 50
+EPOCHS = 60
 
-CLASSES = ['moi', 'mon_ami', 'autre']
+CLASSES = ['moi', 'ami', 'autre']
 
 # =========================================================
 # FONCTION DE PRÉTRAITEMENT AUDIO (AUDIO -> MFCC)
@@ -31,6 +31,7 @@ def charger_et_extraire_mfcc(chemin_fichier, target_duration=DUREE_AUDIO, sr=SAM
         y = y[:target_len]
         
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    # Normalisation globale
     mfcc = (mfcc - np.mean(mfcc)) / (np.std(mfcc) + 1e-8)
     return mfcc
 
@@ -67,7 +68,7 @@ def charger_dataset_depuis_dossier(dossier_base):
     return np.array(X), np.array(y)
 
 # =========================================================
-# CHARGEMENT DES DONNÉES (CHEMINS EXAGEMENT CORRIGÉS)
+# CHARGEMENT DES DONNÉES
 # =========================================================
 
 CHEMIN_ENTRAINEMENT = "/home/ubuntu/Reconnaissance_Vocale/Donnees/Entrainement"
@@ -86,17 +87,32 @@ print(f"\nForme des entrées (X_train) : {X_train.shape}")
 print(f"Classes détectées : {CLASSES}")
 
 # =========================================================
-# MODÈLE DE CLASSIFICATION (3 CLASSES)
+# MODÈLE RNA / MLP (PERCEPTRON MULTI-COUCHES)
 # =========================================================
 
-input_shape = (X_train.shape[1], X_train.shape[2])
+input_shape = (X_train.shape[1], X_train.shape[2]) # ex: (40, 87)
 
-modele = tf.keras.Sequential([
+modele_rna = tf.keras.Sequential([
     layers.Input(shape=input_shape),
+    
+    # Applatissement des MFCC (40x87 -> 3480 entrées)
     layers.Flatten(),
-    layers.Dense(128, activation='relu'),
+    
+    # Couche cachée 1
+    layers.Dense(256, activation='relu'),
+    layers.BatchNormalization(),
     layers.Dropout(0.3),
+    
+    # Couche cachée 2
+    layers.Dense(128, activation='relu'),
+    layers.BatchNormalization(),
+    layers.Dropout(0.3),
+    
+    # Couche cachée 3
     layers.Dense(64, activation='relu'),
+    layers.Dropout(0.2),
+    
+    # Couche de sortie RNA (Softmax)
     layers.Dense(3, activation='softmax')
 ])
 
@@ -104,21 +120,21 @@ modele = tf.keras.Sequential([
 # COMPILATION
 # =========================================================
 
-modele.compile(
-    optimizer='adam',
+modele_rna.compile(
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss='sparse_categorical_crossentropy',
     metrics=['accuracy']
 )
 
-print("\n===== RÉSUMÉ DU MODÈLE =====")
-modele.summary()
+print("\n===== RÉSUMÉ DU MODÈLE RNA (MLP) =====")
+modele_rna.summary()
 
 # =========================================================
 # ENTRAÎNEMENT
 # =========================================================
 
-print("\n===== ENTRAÎNEMENT =====")
-historique = modele.fit(
+print("\n===== ENTRAÎNEMENT RNA =====")
+historique = modele_rna.fit(
     X_train, y_train,
     validation_data=(X_test, y_test),
     batch_size=BATCH_SIZE,
@@ -130,12 +146,12 @@ historique = modele.fit(
 # =========================================================
 
 print("\n===== ÉVALUATION =====")
-loss, accuracy = modele.evaluate(X_test, y_test)
+loss, accuracy = modele_rna.evaluate(X_test, y_test)
 print(f"\nLoss      : {loss:.4f}")
 print(f"Accuracy  : {accuracy:.4f}")
 
 CHEMIN_MODELE = "/home/ubuntu/Reconnaissance_Vocale/modele/modele_reconnaissance_vocale.h5"
 os.makedirs(os.path.dirname(CHEMIN_MODELE), exist_ok=True)
-modele.save(CHEMIN_MODELE)
+modele_rna.save(CHEMIN_MODELE)
 
-print(f"\nModèle sauvegardé : {CHEMIN_MODELE}")
+print(f"\nModèle RNA sauvegardé : {CHEMIN_MODELE}")

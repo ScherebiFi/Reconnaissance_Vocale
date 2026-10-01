@@ -22,7 +22,7 @@ modele = tf.keras.models.load_model(CHEMIN_MODELE)
 # PRÉTRAITEMENT DE L'AUDIO À TESTER
 # =========================================================
 
-CHEMIN_AUDIO = "/home/ubuntu/Reconnaissance_Vocale/Donnees/Test/moi/moi15.mp3"
+CHEMIN_AUDIO = "/home/ubuntu/Reconnaissance_Vocale/Donnees/Test/autre/autre20.mp3"
 
 def charger_et_extraire_mfcc(chemin_fichier):
     y, sr = librosa.load(chemin_fichier, sr=SAMPLE_RATE)
